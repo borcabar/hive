@@ -1,0 +1,148 @@
+
+############################################################################
+#################        Práctica de HIVE        ###########################   ########################                  ##################################
+############################################################################
+
+#En este documento pongo los avances, lineas de código, ideas y demás de la práctica de hive de Patricia.
+
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                 Subir los archivos de mi maquina al edge .xml
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+
+#bajo los archivos del sifo.comillas.edu
+
+#subo los archivos al edge, la shell esta desde mi maquina
+scp /Users/borisca/Desktop/MBD.comillas/Procesamiento.BD/hive.patricia/practicas.entregables/books.xml bcabrera@192.168.80.33:/home/bcabrera
+
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                   Gestionar el HDFS
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+
+#Creo el directorio books en mi hdfs, y le asigno los permisos que me interesan, esto es desde el edge
+hadoop fs -mkdir /user/bcabrera/books
+
+#el numero del permiso es de 3 cifras XYZ, la primera 'x' son los permisos del
+# owner, 'y' del grupo, y 'z' del mundo. Resultan de la suma de write (), read() 
+# and execute ()
+hadoop fs -chmod 750  /user/bcabrera/books
+
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                      Instalar el programa .jar
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+#bajo el serde de la página web y lo isntalo en mi maquina
+https://github.com/dvasilen/Hive-XML-SerDe
+
+#subo el programa .jar de mi maquina al edge, la shell esta desde mi maquina
+scp /Users/borisca/Desktop/MBD.comillas/hivexmlserde-1.0.5.3.jar bcabrera@192.168.80.33:/home/bcabrera
+
+#instalar el programa .jar alojado en el edge en HIVE. La shel esta en el HIVE
+add jar /home/bcabrera/hivexmlserde-1.0.5.3.jar;
+
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                      Hacer el CREATE en Hive
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+
+#Mi rpopuesta usando el .xml que nos da Patricia
+#debo asegurar que sea externa, que se almacene en el hdfs, ni los apartados del xpath.
+
+#Advertencias: le he puesto 'EXTERNAL' con todos mis cojones, veamos si funciona
+
+#Los tipos de variables asignadas son FLOAT para los numeros y STRING para el resto, no admite VARCHAR y usando BIGINT se obtiene NULL, será porque el precio no es entero. 
+#los <array> son listas que no vienen al caso, así como los <map> que son diccionarios de python
+
+#la ubicacion, dice Patricia en un slide, se establece con el comando LOCATION...shit!, me ha creado la tabla xml_books dentro del hive; debe ser externa!
+
+drop table xml_books;
+CREATE EXTERNAL TABLE xml_books ( id STRING, author STRING, title STRING, genre STRING, price FLOAT, publish_date STRING, description STRING ) 
+ROW FORMAT SERDE 'com.ibm.spss.hive.serde2.xml.XmlSerDe'
+WITH SERDEPROPERTIES (
+"column.xpath.id"="/book/@id",
+"column.xpath.author"="/book/author/text()",
+"column.xpath.title"="/book/title/text()",
+"column.xpath.genre"="/book/genre/text()",
+"column.xpath.price"="/book/price/text()",
+"column.xpath.publish_date"="/book/publish_date/text()",
+"column.xpath.description"="/book/description/text()"
+)
+STORED AS
+INPUTFORMAT 'com.ibm.spss.hive.serde2.xml.XmlInputFormat'
+OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.IgnoreKeyTextOutputFormat'
+LOCATION 'hdfs:///user/bcabrera/books'
+TBLPROPERTIES (
+"xmlinput.start"="<book id",
+"xmlinput.end"="</book>"
+);
+
+#primero subo los datos books.xml al hdfs 
+hadoop fs -put /home/bcabrera/books.xml /user/bcabrera/books
+
+# para cargar la tabla se usa el comando, 
+LOAD DATA INPATH '/user/bcabrera/books/books.xml' INTO TABLE xml_books;
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                      Consulta desde el HIVe
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+#esto lo uso para contar y nombrar la cant de textos por cada genero
+select count(genre), genre from xml_books group by genre;
+
+#para el promedio
+select avg(price) from xml_books;
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                      Gestion y control de HIVE
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+
+#PAra saber el formato de las tablas hive
+describe formatted table_name
+
+describe extended table_name
+
+
+#000000000000000000000000000000000000000000000000000000000000000000000000000
+
+#                Pregunta 2
+
+#000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#                      Particionamiento de tabla HIVE
+#–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+#Se instalan los ambeintes, supongo que en hive>
+set hive.exec.dynamic.partition=true;
+set hive.exec.dynamic.partition.mode=nonstrict;
+
+#El código usado es
+drop table books_part; 
+CREATE EXTERNAL TABLE books_part ( id STRING, author STRING, title STRING, price FLOAT, description STRING )
+PARTITIONED BY (genre STRING, publish_date DATE)
+STORED AS parquet
+LOCATION 'hdfs:///user/bcabrera/books'
+TBLPROPERTIES ("parquet.compression"="SNAPPY");
+
+INSERT OVERWRITE TABLE bcabrera.books_part PARTITION(genre, publish_date) 
+SELECT id,author,title,price,description,genre,CAST(publish_date as DATE)
+FROM bcabrera.xml_books ;
+
+#consulta de genre=Fantasy y publish_date >= “2000-11-17”
+select * from books_part where genre='Fantasy' AND ublish_date >= '2000-11-17';
+
+#consulto el hdfs buscando las particiones
+
