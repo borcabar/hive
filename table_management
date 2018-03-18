@@ -1,0 +1,26 @@
+
+CREATE EXTERNAL TABLE IF NOT EXISTS bcabrera.ooziepractica ( time STRING,  
+a DOUBLE, b DOUBLE,c DOUBLE, d DOUBLE,e DOUBLE, f DOUBLE, 
+g DOUBLE, 
+h DOUBLE, 
+i DOUBLE)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+COLLECTION ITEMS TERMINATED BY '\n'
+STORED AS TEXTFILE
+LOCATION '/user/bcabrera/practica/';
+
+# The process should be 'play' into docuemnts of HUE
+
+#This is the next query in hive
+load data inpath '/user/bcabrera/btc_boris.csv' into table bcabrera.OoziePractica;
+
+# add time timestamp, the syntax is something like
+ALTER TABLE bcabrera.ooziepractica ADD COLUMNS (hora TIMESTAMP);
+
+# PASO4 where i copy the column time to hora, but deleting the last characters 'UTC'
+2018-03-06 00:00:00 UTC
+
+INSERT OVERWRITE TABLE bcabrera.ooziepractica
+SELECT time,a,b,c,d,e,f,g,h,i,split(time,'UTC')[0]
+FROM bcabrera.ooziepractica;
